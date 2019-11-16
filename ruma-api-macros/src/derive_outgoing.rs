@@ -24,11 +24,8 @@ pub fn expand_derive_outgoing(input: DeriveInput) -> syn::Result<TokenStream> {
         ));
     }
 
-    let derive_deserialize = if no_deserialize_in_attrs(&input.attrs) {
-        TokenStream::new()
-    } else {
-        quote!(#[derive(ruma_api::exports::serde::Deserialize)])
-    };
+    let derive_deserialize = (!no_deserialize_in_attrs(&input.attrs))
+        .then(|| quote!(#[derive(ruma_api::exports::serde::Deserialize)]));
 
     let (mut fields, struct_kind): (Vec<_>, _) = match input.data {
         Data::Enum(_) | Data::Union(_) => {

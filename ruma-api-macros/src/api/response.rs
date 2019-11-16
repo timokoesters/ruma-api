@@ -229,25 +229,19 @@ impl ToTokens for Response {
         let (derive_deserialize, response_body_def) =
             if let Some(body_field) = self.fields.iter().find(|f| f.is_newtype_body()) {
                 let field = Field { ident: None, colon_token: None, ..body_field.field().clone() };
-                let derive_deserialize = if body_field.has_wrap_incoming_attr() {
-                    TokenStream::new()
-                } else {
-                    quote!(ruma_api::exports::serde::Deserialize)
-                };
+                let derive_deserialize = (!body_field.has_wrap_incoming_attr())
+                    .then(|| quote!(ruma_api::exports::serde::Deserialize));
 
                 (derive_deserialize, quote! { (#field); })
             } else if self.has_body_fields() {
                 let fields = self.fields.iter().filter(|f| f.is_body());
-                let derive_deserialize = if fields.clone().any(|f| f.has_wrap_incoming_attr()) {
-                    TokenStream::new()
-                } else {
-                    quote!(ruma_api::exports::serde::Deserialize)
-                };
+                let derive_deserialize = (!fields.clone().any(|f| f.has_wrap_incoming_attr()))
+                    .then(|| quote!(ruma_api::exports::serde::Deserialize));
                 let fields = fields.map(ResponseField::field);
 
                 (derive_deserialize, quote!({ #(#fields),* }))
             } else {
-                (quote!(ruma_api::exports::serde::Deserialize), quote!(;))
+                (Some(quote!(ruma_api::exports::serde::Deserialize)), quote!(;))
             };
 
         let response = quote! {

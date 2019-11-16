@@ -302,28 +302,22 @@ impl ToTokens for Request {
         let (derive_deserialize, request_body_def) =
             if let Some(body_field) = self.fields.iter().find(|f| f.is_newtype_body()) {
                 let field = Field { ident: None, colon_token: None, ..body_field.field().clone() };
-                let derive_deserialize = if body_field.has_wrap_incoming_attr() {
-                    TokenStream::new()
-                } else {
-                    quote!(ruma_api::exports::serde::Deserialize)
-                };
+                let derive_deserialize = (!body_field.has_wrap_incoming_attr())
+                    .then(|| quote!(ruma_api::exports::serde::Deserialize));
 
                 (derive_deserialize, quote! { (#field); })
             } else if self.has_body_fields() {
                 let fields = self.fields.iter().filter(|f| f.is_body());
-                let derive_deserialize = if fields.clone().any(|f| f.has_wrap_incoming_attr()) {
-                    TokenStream::new()
-                } else {
-                    quote!(ruma_api::exports::serde::Deserialize)
-                };
+                let derive_deserialize = (!fields.clone().any(|f| f.has_wrap_incoming_attr()))
+                    .then(|| quote!(ruma_api::exports::serde::Deserialize));
                 let fields = fields.map(RequestField::field);
 
                 (derive_deserialize, quote! { { #(#fields),* } })
             } else {
-                (quote!(ruma_api::exports::serde::Deserialize), quote!(;))
+                (Some(quote!(ruma_api::exports::serde::Deserialize)), quote!(;))
             };
 
-        let request_path_struct = if self.has_path_fields() {
+        let request_path_struct = self.has_path_fields().then(|| {
             let fields = self.fields.iter().filter_map(RequestField::as_path_field);
 
             quote! {
@@ -337,9 +331,7 @@ impl ToTokens for Request {
                     #(#fields),*
                 }
             }
-        } else {
-            TokenStream::new()
-        };
+        });
 
         let request_query_struct = if let Some(f) = self.query_map_field() {
             let field = Field { ident: None, colon_token: None, ..f.clone() };
@@ -500,11 +492,7 @@ impl RequestField {
 
     /// Gets the inner `Field` value if it's of the provided kind.
     fn field_of_kind(&self, kind: RequestFieldKind) -> Option<&Field> {
-        if self.kind() == kind {
-            Some(self.field())
-        } else {
-            None
-        }
+        (self.kind() == kind).then(|| self.field())
     }
 
     /// Whether or not the request field has a #[wrap_incoming] attribute.

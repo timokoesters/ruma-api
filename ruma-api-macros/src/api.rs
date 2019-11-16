@@ -100,13 +100,11 @@ impl ToTokens for Api {
             quote!(Response)
         };
 
-        let extract_request_path = if self.request.has_path_fields() {
+        let extract_request_path = self.request.has_path_fields().then(|| {
             quote! {
                 let path_segments: Vec<&str> = request.uri().path()[1..].split('/').collect();
             }
-        } else {
-            TokenStream::new()
-        };
+        });
 
         let (url_set_path, parse_request_path) = if self.request.has_path_fields() {
             let path_str = path.value();
@@ -256,29 +254,22 @@ impl ToTokens for Api {
             self.request.request_init_query_fields()
         };
 
-        let add_headers_to_request = if self.request.has_header_fields() {
+        let add_headers_to_request = self.request.has_header_fields().then(|| {
             let add_headers = self.request.add_headers_to_request();
             quote! {
                 let headers = http_request.headers_mut();
                 #add_headers
             }
-        } else {
-            TokenStream::new()
-        };
+        });
 
-        let extract_request_headers = if self.request.has_header_fields() {
+        let extract_request_headers = self.request.has_header_fields().then(|| {
             quote! {
                 let headers = request.headers();
             }
-        } else {
-            TokenStream::new()
-        };
+        });
 
-        let parse_request_headers = if self.request.has_header_fields() {
-            self.request.parse_headers_from_request()
-        } else {
-            TokenStream::new()
-        };
+        let parse_request_headers =
+            self.request.has_header_fields().then(|| self.request.parse_headers_from_request());
 
         let request_body_initializers = if let Some(field) = self.request.newtype_body_field() {
             let field_name = field.ident.as_ref().expect("expected field to have an identifier");
@@ -298,13 +289,11 @@ impl ToTokens for Api {
             self.request.request_init_body_fields()
         };
 
-        let extract_response_headers = if self.response.has_header_fields() {
+        let extract_response_headers = self.response.has_header_fields().then(|| {
             quote! {
                 let mut headers = http_response.headers().clone();
             }
-        } else {
-            TokenStream::new()
-        };
+        });
 
         let response_init_fields = self.response.init_fields();
 
