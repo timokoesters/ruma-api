@@ -13,9 +13,9 @@
 #![warn(rust_2018_idioms)]
 #![deny(missing_copy_implementations, missing_debug_implementations, missing_docs)]
 
-use std::convert::{TryFrom, TryInto};
-
 use http::Method;
+use serde::{Deserialize, Serialize};
+use std::convert::{TryFrom, TryInto};
 
 /// Generates a `ruma_api::Endpoint` from a concise definition.
 ///
@@ -269,6 +269,95 @@ pub struct Metadata {
 
     /// Whether or not the server requires an authenticated user for this endpoint.
     pub requires_authentication: bool,
+}
+
+#[serde(tag = "errcode")]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+enum MatrixErrorKind {
+    #[serde(rename = "M_FORBIDDEN")]
+    Forbidden,
+    #[serde(rename = "M_UNKNOWN_TOKEN")]
+    UnknownToken,
+    #[serde(rename = "M_MISSING_TOKEN")]
+    MissingToken,
+    #[serde(rename = "M_BAD_JSON")]
+    BadJson,
+    #[serde(rename = "M_NOT_JSON")]
+    NotJson,
+    #[serde(rename = "M_NOT_FOUND")]
+    NotFound,
+    #[serde(rename = "M_LIMIT_EXCEEDED")]
+    LimitExceeded,
+    #[serde(rename = "M_UNKNOWN")]
+    Unknown,
+    #[serde(rename = "M_UNRECOGNIZED")]
+    Unrecognized,
+    #[serde(rename = "M_UNAUTHORIZED")]
+    Unauthorized,
+    #[serde(rename = "M_USER_IN_USE")]
+    UserInUse,
+    #[serde(rename = "M_INVALID_USERNAME")]
+    InvalidUsername,
+    #[serde(rename = "M_ROOM_IN_USE")]
+    RoomInUse,
+    #[serde(rename = "M_INVALID_ROOM_STATE")]
+    InvalidRoomState,
+    #[serde(rename = "M_THREEPID_IN_USE")]
+    ThreepidInUse,
+    #[serde(rename = "M_THREEPID_NOT_FOUND")]
+    ThreepidNotFound,
+    #[serde(rename = "M_THREEPID_AUTH_FAILED")]
+    ThreepidAuthFailed,
+    #[serde(rename = "M_THREEPID_DENIED")]
+    ThreepidDenied,
+    #[serde(rename = "M_SERVER_NOT_TRUSTED")]
+    ServerNotTrusted,
+    #[serde(rename = "M_UNSUPPORTED_ROOM_VERSION")]
+    UnsupportedRoomVersion,
+    #[serde(rename = "M_INCOMPATIBLE_ROOM_VERSION")]
+    IncompatibleRoomVersion,
+    #[serde(rename = "M_BAD_STATE")]
+    BadState,
+    #[serde(rename = "M_GUEST_ACCESS_FORBIDDEN")]
+    GuestAccessForbidden,
+    #[serde(rename = "M_CAPTCHA_NEEDED")]
+    CaptchaNeeded,
+    #[serde(rename = "M_CAPTCHA_INVALID")]
+    CaptchaInvalid,
+    #[serde(rename = "M_MISSING_PARAM")]
+    MissingParam,
+    #[serde(rename = "M_INVALID_PARAM")]
+    InvalidParam,
+    #[serde(rename = "M_TOO_LARGE")]
+    TooLarge,
+    #[serde(rename = "M_EXCLUSIVE")]
+    Exclusive,
+}
+
+/// A Matrix Error
+///
+/// The type implementing this trait contains any data needed to construct a matrix error.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct MatrixError {
+    /// A value which can be used to handle an error message
+    #[serde(flatten)]
+    kind: MatrixErrorKind,
+    /// The http status code
+    #[serde(skip)]
+    status_code: http::StatusCode,
+    /// A human-readable error message, usually a sentence explaining what went wrong.
+    #[serde(rename = "error")]
+    message: String,
+}
+
+impl From<MatrixError> for http::Response<Vec<u8>> {
+    fn from(error: MatrixError) -> http::Response<Vec<u8>> {
+        http::Response::builder()
+            .header(http::header::CONTENT_TYPE, "application/json")
+            .status(error.status_code)
+            .body(serde_json::to_vec(&error).unwrap())
+            .unwrap()
+    }
 }
 
 #[cfg(test)]
